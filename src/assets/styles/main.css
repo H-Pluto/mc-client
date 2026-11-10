@@ -1,0 +1,70 @@
+:root {
+  color-scheme: dark;
+
+  --bg: #101419;
+  --panel: #161b22;
+  --panel-input: #12171d;
+  --line: #28303a;
+  --line-strong: #3a4552;
+
+  --text: #e9e6df;
+  --text-muted: #8d95a1;
+  --text-dim: #7f8894;
+
+  --gold: #e2a54b;
+  --gold-strong: #f0b961;
+  --gold-ink: #1b1408;
+  --danger: #e5775f;
+
+  --font-sans:
+    'Segoe UI', 'Microsoft YaHei UI', 'Microsoft YaHei', 'PingFang SC', 'Noto Sans SC', system-ui,
+    sans-serif;
+  --font-mono: 'Cascadia Mono', Consolas, 'SFMono-Regular', Menlo, monospace;
+  --font-display: 'Bahnschrift', 'Segoe UI Semibold', 'Segoe UI', 'Microsoft YaHei UI', sans-serif;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+p,
+dl,
+dd,
+dt {
+  margin: 0;
+}
+
+button,
+input {
+  font: inherit;
+  color: inherit;
+}
+
+a {
+  color: var(--gold);
+}
+
+::selection {
+  background: var(--gold);
+  color: var(--gold-ink);
+}
+
+:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}

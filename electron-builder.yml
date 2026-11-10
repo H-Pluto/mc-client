@@ -1,0 +1,37 @@
+appId: com.huaju.mcrcon
+productName: MC RCON
+copyright: Copyright © 2026 H-Pluto
+
+directories:
+  output: release
+
+files:
+  - dist/**/*
+  - electron/**/*
+  - package.json
+
+# ESM 主进程与依赖在 asar 内的加载兼容性不稳定，先以普通目录打包
+asar: false
+
+electronDownload:
+  mirror: https://npmmirror.com/mirrors/electron/
+
+win:
+  icon: public/favicon.ico
+  target:
+    - target: nsis
+      arch: [x64]
+    - target: portable
+      arch: [x64]
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: MC RCON
+  artifactName: ${productName}-Setup-${version}.${ext}
+
+portable:
+  artifactName: ${productName}-Portable-${version}.${ext}
