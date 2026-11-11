@@ -193,11 +193,16 @@ async function runSelected() {
 async function goConsole() {
     await router.push({ name: 'console' })
 }
+
+async function goFlow() {
+    await router.push({ name: 'flow' })
+}
 </script>
 
 <template>
     <div class="commands">
         <AppBar :tone="connected ? 'ready' : 'idle'" :status="barStatus">
+            <button class="bar-button" type="button" @click="goFlow">流程图</button>
             <button class="bar-button" type="button" @click="goConsole">返回控制台</button>
             <UpdateControl />
         </AppBar>

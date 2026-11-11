@@ -29,6 +29,12 @@ const router = createRouter({
       component: () => import('@/views/CommandList.vue'),
       meta: { title: '指令集' },
     },
+    {
+      path: '/flow',
+      name: 'flow',
+      component: () => import('@/views/FlowEditor.vue'),
+      meta: { title: '流程图' },
+    },
     { path: '/:pathMatch(.*)*', redirect: '/' },
   ],
 })

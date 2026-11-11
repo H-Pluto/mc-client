@@ -88,6 +88,10 @@ async function disconnect() {
 async function goCommandList() {
   await router.push({ name: 'commandList' })
 }
+
+async function goFlow() {
+  await router.push({ name: 'flow' })
+}
 </script>
 
 <template>
@@ -97,6 +101,7 @@ async function goCommandList() {
         {{ connection.refreshing ? '刷新中' : '刷新' }}
       </button>
       <button class="bar-button" type="button" @click="goCommandList">指令集</button>
+      <button class="bar-button" type="button" @click="goFlow">流程图</button>
       <button class="bar-button" type="button" @click="disconnect">断开连接</button>
       <UpdateControl />
     </AppBar>

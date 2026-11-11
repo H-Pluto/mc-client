@@ -13,6 +13,12 @@ contextBridge.exposeInMainWorld('mc', {
   call: (method, args) => ipcRenderer.invoke('mc:call', method, Array.isArray(args) ? args : []),
 })
 
+contextBridge.exposeInMainWorld('flow', {
+  run: (commands) => ipcRenderer.invoke('flow:run', commands),
+  save: (content) => ipcRenderer.invoke('flow:save', content),
+  load: () => ipcRenderer.invoke('flow:load'),
+})
+
 contextBridge.exposeInMainWorld('updater', {
   info: () => ipcRenderer.invoke('updater:info'),
   check: () => ipcRenderer.invoke('updater:check'),

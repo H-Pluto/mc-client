@@ -1,13 +1,17 @@
+import fs from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import { app, BrowserWindow, ipcMain, shell } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import electronUpdater from 'electron-updater'
 import { CommandClient, MinecraftRcon } from 'rcon-mc-command'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const devServerUrl = process.env.VITE_DEV_SERVER_URL
 const CONNECT_TIMEOUT = 5000
+const FLOW_MAX_COMMANDS = 200
+const FLOW_MAX_FILE_BYTES = 2 * 1024 * 1024
+const FLOW_FILE_FILTERS = [{ name: '流程图 JSON', extensions: ['json'] }]
 
 const { autoUpdater } = electronUpdater
 const UPDATER_EVENT = 'updater:event'
@@ -274,6 +278,105 @@ ipcMain.handle('rcon:execute', async (_event, command) => {
 
   try {
     return { ok: true, data: await rcon.send(command.trim()) }
+  } catch (error) {
+    return toFailure(error)
+  }
+})
+
+ipcMain.handle('flow:run', async (_event, commands) => {
+  if (!rcon) return { ok: false, message: 'RCON 未连接' }
+  if (!Array.isArray(commands) || commands.length === 0) {
+    return { ok: false, message: '没有可执行的指令' }
+  }
+  if (commands.length > FLOW_MAX_COMMANDS) {
+    return { ok: false, message: `一次最多执行 ${FLOW_MAX_COMMANDS} 条指令` }
+  }
+
+  const results = []
+  for (const raw of commands) {
+    if (typeof raw !== 'string' || !raw.trim()) {
+      results.push({ command: String(raw ?? ''), ok: false, message: '指令为空' })
+      continue
+    }
+
+    const command = raw.trim()
+    try {
+      const response = await rcon.send(command)
+      results.push({ command, ok: true, response: String(response ?? '') })
+    } catch (error) {
+      results.push({
+        command,
+        ok: false,
+        message: error instanceof Error ? error.message : String(error),
+      })
+    }
+  }
+
+  return { ok: true, data: results }
+})
+
+function flowWindow(event) {
+  return BrowserWindow.fromWebContents(event.sender) ?? mainWindow
+}
+
+function defaultFlowFileName() {
+  const now = new Date()
+  const pad = (value) => String(value).padStart(2, '0')
+  const date = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}`
+  const time = `${pad(now.getHours())}${pad(now.getMinutes())}`
+  return `mc-flow-${date}-${time}.json`
+}
+
+ipcMain.handle('flow:save', async (event, content) => {
+  if (typeof content !== 'string' || !content.trim()) {
+    return { ok: false, message: '流程图内容为空' }
+  }
+  if (Buffer.byteLength(content, 'utf8') > FLOW_MAX_FILE_BYTES) {
+    return { ok: false, message: '流程图文件过大' }
+  }
+
+  const owner = flowWindow(event)
+  const options = {
+    title: '保存流程图',
+    defaultPath: defaultFlowFileName(),
+    filters: FLOW_FILE_FILTERS,
+  }
+
+  try {
+    const result = owner
+      ? await dialog.showSaveDialog(owner, options)
+      : await dialog.showSaveDialog(options)
+    if (result.canceled || !result.filePath) return { ok: true, data: null }
+
+    await fs.writeFile(result.filePath, content, 'utf8')
+    return { ok: true, data: { path: result.filePath } }
+  } catch (error) {
+    return toFailure(error)
+  }
+})
+
+ipcMain.handle('flow:load', async (event) => {
+  const owner = flowWindow(event)
+  const options = {
+    title: '打开流程图',
+    properties: ['openFile'],
+    filters: FLOW_FILE_FILTERS,
+  }
+
+  try {
+    const result = owner
+      ? await dialog.showOpenDialog(owner, options)
+      : await dialog.showOpenDialog(options)
+    const filePath = result.filePaths?.[0]
+    if (result.canceled || !filePath) return { ok: true, data: null }
+
+    const stat = await fs.stat(filePath)
+    if (stat.size > FLOW_MAX_FILE_BYTES) {
+      return { ok: false, message: '流程图文件过大' }
+    }
+
+    const content = await fs.readFile(filePath, 'utf8')
+    return { ok: true, data: { path: filePath, content } }
   } catch (error) {
     return toFailure(error)
   }

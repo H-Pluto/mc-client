@@ -119,7 +119,7 @@ function reasonArg(): ArgDef {
   }
 }
 
-const ITEMS: Array<[string, string]> = [
+export const ITEMS: Array<[string, string]> = [
   ['apple', '苹果'],
   ['golden_apple', '金苹果'],
   ['enchanted_golden_apple', '附魔金苹果'],
@@ -151,7 +151,7 @@ const ITEMS: Array<[string, string]> = [
   ['glass', '玻璃'],
 ]
 
-const EFFECTS: Array<[string, string, string[]?]> = [
+export const EFFECTS: Array<[string, string, string[]?]> = [
   ['speed', '速度', ['加速']],
   ['slowness', '缓慢', ['减速']],
   ['haste', '急迫', ['挖掘加速']],
