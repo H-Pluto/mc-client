@@ -1,6 +1,6 @@
 {
   "name": "mc-client",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "Minecraft RCON 桌面客户端",
   "author": "H-Pluto",
   "private": true,
@@ -12,6 +12,7 @@
     "start": "electron .",
     "pack:dir": "npm run build && electron-builder --dir",
     "pack:win": "npm run build && cross-env ELECTRON_BUILDER_BINARIES_MIRROR=https://npmmirror.com/mirrors/electron-builder-binaries/ electron-builder --win",
+    "publish:win": "npm run build && cross-env ELECTRON_BUILDER_BINARIES_MIRROR=https://npmmirror.com/mirrors/electron-builder-binaries/ electron-builder --win --publish always",
     "build": "run-p type-check \"build-only {@}\" --",
     "preview": "vite preview",
     "test:unit": "vitest",
@@ -24,6 +25,7 @@
     "format": "prettier --write --experimental-cli src/"
   },
   "dependencies": {
+    "electron-updater": "^6.8.11",
     "pinia": "^4.0.3",
     "rcon-mc-command": "^1.0.3",
     "vue": "^3.5.42",

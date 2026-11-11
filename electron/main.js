@@ -2,11 +2,19 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { app, BrowserWindow, ipcMain, shell } from 'electron'
+import electronUpdater from 'electron-updater'
 import { CommandClient, MinecraftRcon } from 'rcon-mc-command'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const devServerUrl = process.env.VITE_DEV_SERVER_URL
 const CONNECT_TIMEOUT = 5000
+
+const { autoUpdater } = electronUpdater
+const UPDATER_EVENT = 'updater:event'
+const RELEASES_PAGE = 'https://github.com/H-Pluto/mc-client/releases/latest'
+const DEV_UPDATE_MESSAGE = '开发模式下不检查更新，请使用打包后的应用。'
+const PORTABLE_UPDATE_MESSAGE = '便携版不支持应用内安装，请前往下载页获取新版本。'
+const isPortable = Boolean(process.env.PORTABLE_EXECUTABLE_DIR)
 
 /** @type {BrowserWindow | null} */
 let mainWindow = null
@@ -18,10 +26,119 @@ let mc = null
 let mcMethods = new Set()
 /** @type {{ host: string, port: number } | null} */
 let serverInfo = null
+let updaterInitialized = false
+let checking = false
 
 function toFailure(error) {
   return { ok: false, message: error instanceof Error ? error.message : String(error) }
 }
+
+function normalizeReleaseNotes(notes) {
+  if (!notes) return ''
+  if (typeof notes === 'string') return notes
+  if (!Array.isArray(notes)) return ''
+
+  return notes
+    .map((entry) => {
+      const heading = entry.version ? `v${entry.version}` : ''
+      return [heading, entry.note ?? ''].filter(Boolean).join('\n')
+    })
+    .join('\n\n')
+}
+
+function toUpdateSummary(info) {
+  return {
+    version: info?.version ?? null,
+    releaseName: info?.releaseName ?? null,
+    releaseNotes: normalizeReleaseNotes(info?.releaseNotes),
+    releaseDate: info?.releaseDate ?? null,
+  }
+}
+
+function sendUpdaterEvent(type, payload = null) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send(UPDATER_EVENT, { type, payload })
+  }
+}
+
+function initUpdater() {
+  if (updaterInitialized) return
+  updaterInitialized = true
+
+  autoUpdater.autoDownload = false
+  autoUpdater.autoInstallOnAppQuit = true
+
+  autoUpdater.on('checking-for-update', () => sendUpdaterEvent('checking'))
+  autoUpdater.on('update-available', (info) =>
+    sendUpdaterEvent('available', toUpdateSummary(info)),
+  )
+  autoUpdater.on('update-not-available', (info) =>
+    sendUpdaterEvent('not-available', { version: info?.version ?? null }),
+  )
+  autoUpdater.on('download-progress', (progress) =>
+    sendUpdaterEvent('progress', {
+      percent: progress.percent,
+      bytesPerSecond: progress.bytesPerSecond,
+      transferred: progress.transferred,
+      total: progress.total,
+    }),
+  )
+  autoUpdater.on('update-downloaded', (info) =>
+    sendUpdaterEvent('downloaded', toUpdateSummary(info)),
+  )
+  autoUpdater.on('error', (error) => sendUpdaterEvent('error', toFailure(error)))
+}
+
+ipcMain.handle('updater:info', () => ({
+  ok: true,
+  data: {
+    version: app.getVersion(),
+    packaged: app.isPackaged,
+    portable: isPortable,
+  },
+}))
+
+ipcMain.handle('updater:check', async () => {
+  if (!app.isPackaged) return { ok: false, message: DEV_UPDATE_MESSAGE }
+  if (checking) return { ok: true, data: null }
+
+  initUpdater()
+  checking = true
+  try {
+    await autoUpdater.checkForUpdates()
+    return { ok: true, data: null }
+  } catch (error) {
+    return toFailure(error)
+  } finally {
+    checking = false
+  }
+})
+
+ipcMain.handle('updater:download', async () => {
+  if (!app.isPackaged) return { ok: false, message: DEV_UPDATE_MESSAGE }
+  if (isPortable) return { ok: false, message: PORTABLE_UPDATE_MESSAGE }
+
+  initUpdater()
+  try {
+    await autoUpdater.downloadUpdate()
+    return { ok: true, data: null }
+  } catch (error) {
+    return toFailure(error)
+  }
+})
+
+ipcMain.handle('updater:install', () => {
+  if (!app.isPackaged) return { ok: false, message: DEV_UPDATE_MESSAGE }
+  if (isPortable) return { ok: false, message: PORTABLE_UPDATE_MESSAGE }
+
+  setImmediate(() => autoUpdater.quitAndInstall(false, true))
+  return { ok: true, data: null }
+})
+
+ipcMain.handle('updater:open-release-page', () => {
+  void shell.openExternal(RELEASES_PAGE)
+  return { ok: true, data: null }
+})
 
 function collectCommandMethods(client) {
   const methods = new Set()

@@ -109,9 +109,47 @@ npx cross-env ELECTRON_BUILDER_BINARIES_MIRROR=https://npmmirror.com/mirrors/ele
 - `MC RCON-Setup-<version>.exe`：NSIS 安装包，可选择安装目录并创建桌面快捷方式
 - `MC RCON-Portable-<version>.exe`：免安装便携版
 - `win-unpacked/`：未压缩的应用目录，可直接运行其中的 `MC RCON.exe`
-- `*.blockmap`：electron-builder 生成的差分更新索引（当前未接入自动更新）
+- `*.blockmap`：electron-builder 生成的差分更新索引
+- `latest.yml`：自动更新清单，随安装包一起发布到 GitHub Releases
 
 版本号取 `package.json` 的 `version`；应用图标使用 `public/favicon.ico`。当前未配置代码签名证书，Windows 可能提示“未知发布者”，正式分发前可以补上签名配置。为保证 ESM 主进程与 `rcon-mc-command` 正常加载，打包配置中关闭了 asar（`electron-builder.yml` 的 `asar: false`）。
+
+## 自动更新
+
+应用通过 `electron-updater` 从 GitHub Releases 检查更新，更新清单是 Release 中的 `latest.yml`。界面右上角有“检查更新”按钮，应用启动后也会静默检查一次。
+
+- 安装版（NSIS）：确认后应用内下载，下载完成后可重启安装。
+- 便携版：不支持应用内安装，检查到新版本后打开 GitHub 发布页手动下载。
+- 开发模式（未打包运行）不会检查更新。
+
+### 发布新版本
+
+1. 修改 `package.json` 的 `version`。
+2. 准备一个有 `repo` 权限的 GitHub Token，设置为 `GH_TOKEN`（PowerShell：`$env:GH_TOKEN="ghp_xxx"`）。
+3. 执行：
+
+```bash
+npm run publish:win
+```
+
+electron-builder 会生成安装包、`latest.yml` 和 `.blockmap`，并上传到该版本对应的 GitHub Release。默认创建的是草稿（draft）Release，需要到 GitHub Releases 页面确认并发布；发布后旧版本客户端才能检查到更新。
+
+### 用 GitHub Actions 打包
+
+仓库内置工作流 [build-windows.yml](.github/workflows/build-windows.yml)：
+
+- 推送 `v*` 标签时自动构建 NSIS 安装包，并上传安装包、`latest.yml`、`.blockmap` 到该标签对应的草稿 Release。标签版本必须与 `package.json` 的 `version` 一致。
+- 在 Actions 页面手动运行「Build Windows Installer」时只构建并生成 artifact，不会创建 Release。
+
+```bash
+git tag v1.0.0
+```
+
+```bash
+git push origin v1.0.0
+```
+
+工作流运行完成后，到 GitHub Releases 把草稿发布出去，客户端即可检查到更新。
 
 ## 服务器要求
 

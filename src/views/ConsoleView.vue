@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import AppBar from '@/components/AppBar.vue'
+import UpdateControl from '@/components/UpdateControl.vue'
 import { useConnectionStore } from '@/stores/connection'
 
 const REFRESH_INTERVAL = 10_000
@@ -97,6 +98,7 @@ async function goCommandList() {
       </button>
       <button class="bar-button" type="button" @click="goCommandList">指令集</button>
       <button class="bar-button" type="button" @click="disconnect">断开连接</button>
+      <UpdateControl />
     </AppBar>
 
     <main class="console__main">

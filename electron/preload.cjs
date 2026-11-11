@@ -12,3 +12,16 @@ contextBridge.exposeInMainWorld('rcon', {
 contextBridge.exposeInMainWorld('mc', {
   call: (method, args) => ipcRenderer.invoke('mc:call', method, Array.isArray(args) ? args : []),
 })
+
+contextBridge.exposeInMainWorld('updater', {
+  info: () => ipcRenderer.invoke('updater:info'),
+  check: () => ipcRenderer.invoke('updater:check'),
+  download: () => ipcRenderer.invoke('updater:download'),
+  install: () => ipcRenderer.invoke('updater:install'),
+  openReleasePage: () => ipcRenderer.invoke('updater:open-release-page'),
+  onEvent: (callback) => {
+    const listener = (_event, event) => callback(event)
+    ipcRenderer.on('updater:event', listener)
+    return () => ipcRenderer.removeListener('updater:event', listener)
+  },
+})

@@ -1,0 +1,59 @@
+name: Build Windows Installer
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check tag version
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: |
+          PKG_VERSION=$(node --input-type=commonjs -p "require('./package.json').version")
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          if [ "$PKG_VERSION" != "$TAG_VERSION" ]; then
+            echo "::error::标签 $GITHUB_REF_NAME 与 package.json 中的版本 $PKG_VERSION 不一致"
+            exit 1
+          fi
+
+      - name: Build renderer
+        run: npm run build
+
+      - name: Build NSIS installer
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PUBLISH: ${{ startsWith(github.ref, 'refs/tags/v') && 'always' || 'never' }}
+        run: npx electron-builder --win nsis --publish $env:PUBLISH
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mc-rcon-windows
+          path: |
+            release/*.exe
+            release/latest.yml
+            release/*.blockmap
+          if-no-files-found: error

@@ -3,6 +3,7 @@ import { computed, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
 import AppBar from '@/components/AppBar.vue'
+import UpdateControl from '@/components/UpdateControl.vue'
 import {
     buildCall,
     buildCommand,
@@ -198,6 +199,7 @@ async function goConsole() {
     <div class="commands">
         <AppBar :tone="connected ? 'ready' : 'idle'" :status="barStatus">
             <button class="bar-button" type="button" @click="goConsole">返回控制台</button>
+            <UpdateControl />
         </AppBar>
 
         <main class="commands__main">

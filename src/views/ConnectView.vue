@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 
 import AppBar from '@/components/AppBar.vue'
 import BaseField from '@/components/BaseField.vue'
+import UpdateControl from '@/components/UpdateControl.vue'
 import { useConnectionStore } from '@/stores/connection'
 
 type Tone = 'idle' | 'partial' | 'ready'
@@ -80,7 +81,9 @@ async function submit() {
 
 <template>
   <div class="connect">
-    <AppBar :tone="barStatus.tone" :status="barStatus.label" />
+    <AppBar :tone="barStatus.tone" :status="barStatus.label">
+      <UpdateControl />
+    </AppBar>
 
     <div class="connect__body">
       <section class="form-panel">

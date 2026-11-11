@@ -5,6 +5,12 @@ copyright: Copyright © 2026 H-Pluto
 directories:
   output: release
 
+# 自动更新清单（latest.yml）与安装包发布到 GitHub Releases
+publish:
+  provider: github
+  owner: H-Pluto
+  repo: mc-client
+
 files:
   - dist/**/*
   - electron/**/*
