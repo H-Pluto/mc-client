@@ -89,45 +89,17 @@ async function submit() {
 
         <form class="form" novalidate @submit.prevent="submit">
           <div class="form__pair">
-            <BaseField
-              id="host"
-              v-model="form.host"
-              label="服务地址"
-              placeholder="127.0.0.1"
-              autocomplete="off"
-              spellcheck="false"
-              :error="errors.host"
-              @update:model-value="errors.host = undefined"
-            />
-            <BaseField
-              id="port"
-              v-model="form.port"
-              label="端口"
-              placeholder="25575"
-              inputmode="numeric"
-              autocomplete="off"
-              :error="errors.port"
-              @update:model-value="errors.port = undefined"
-            />
+            <BaseField id="host" v-model="form.host" label="服务地址" placeholder="127.0.0.1" autocomplete="off"
+              spellcheck="false" :error="errors.host" @update:model-value="errors.host = undefined" />
+            <BaseField id="port" v-model="form.port" label="端口" placeholder="25575" inputmode="numeric"
+              autocomplete="off" :error="errors.port" @update:model-value="errors.port = undefined" />
           </div>
 
-          <BaseField
-            id="password"
-            v-model="form.password"
-            label="密码"
-            placeholder="输入 RCON 密码"
-            :type="showPassword ? 'text' : 'password'"
-            autocomplete="off"
-            :error="errors.password"
-            @update:model-value="errors.password = undefined"
-          >
+          <BaseField id="password" v-model="form.password" label="密码" placeholder="输入 RCON 密码"
+            :type="showPassword ? 'text' : 'password'" autocomplete="off" :error="errors.password"
+            @update:model-value="errors.password = undefined">
             <template #suffix>
-              <button
-                class="reveal"
-                type="button"
-                :aria-pressed="showPassword"
-                @click="showPassword = !showPassword"
-              >
+              <button class="reveal" type="button" :aria-pressed="showPassword" @click="showPassword = !showPassword">
                 {{ showPassword ? '隐藏' : '显示' }}
               </button>
             </template>
@@ -403,6 +375,7 @@ async function submit() {
 }
 
 @media (prefers-reduced-motion: no-preference) {
+
   .form-panel,
   .summary {
     animation: rise 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) both;

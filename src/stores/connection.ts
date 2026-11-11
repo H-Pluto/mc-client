@@ -9,7 +9,14 @@ import {
   parseVersion,
   parseWeather,
 } from '@/lib/rcon-format'
-import { getRconApi, type ConnectInput, type SnapshotRaw } from '@/services/rcon'
+import {
+  getMcApi,
+  getRconApi,
+  type ConnectInput,
+  type IpcResult,
+  type McCall,
+  type SnapshotRaw,
+} from '@/services/rcon'
 
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected'
 
@@ -98,22 +105,32 @@ export const useConnectionStore = defineStore('connection', () => {
     syncError.value = ''
   }
 
-  async function execute(command: string): Promise<{ ok: boolean; message?: string }> {
+  async function execute(
+    command: string,
+    call?: McCall,
+  ): Promise<{ ok: boolean; message?: string; response?: string }> {
     const api = getRconApi()
     if (!api) return { ok: false, message: UNSUPPORTED_ENV }
 
-    const result = await api.execute(command)
+    let result: IpcResult<string>
+    const mc = getMcApi()
+    if (call && mc) {
+      result = await mc.call(call.method, call.args)
+    } else {
+      result = await api.execute(command)
+    }
     if (!result.ok) return { ok: false, message: result.message }
 
+    const response = result.data.trim() || '（无输出）'
     commandLog.value.unshift({
       id: nextCommandId++,
       command,
-      response: result.data.trim() || '（无输出）',
+      response,
       at: new Date().toLocaleTimeString('zh-CN', { hour12: false }),
     })
     if (commandLog.value.length > 20) commandLog.value.length = 20
 
-    return { ok: true }
+    return { ok: true, response }
   }
 
   async function restore() {

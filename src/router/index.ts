@@ -23,6 +23,12 @@ const router = createRouter({
       component: () => import('@/views/ConsoleView.vue'),
       meta: { title: '控制台' },
     },
+    {
+      path: '/command_list',
+      name: 'commandList',
+      component: () => import('@/views/CommandList.vue'),
+      meta: { title: '指令集' },
+    },
     { path: '/:pathMatch(.*)*', redirect: '/' },
   ],
 })

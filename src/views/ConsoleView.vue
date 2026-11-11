@@ -83,19 +83,19 @@ async function disconnect() {
   await connection.disconnect()
   await router.push({ name: 'connect' })
 }
+
+async function goCommandList() {
+  await router.push({ name: 'commandList' })
+}
 </script>
 
 <template>
   <div class="console">
     <AppBar tone="ready" :status="`已连接 · ${connection.address}`">
-      <button
-        class="bar-button"
-        type="button"
-        :disabled="connection.refreshing"
-        @click="connection.refresh()"
-      >
+      <button class="bar-button" type="button" :disabled="connection.refreshing" @click="connection.refresh()">
         {{ connection.refreshing ? '刷新中' : '刷新' }}
       </button>
+      <button class="bar-button" type="button" @click="goCommandList">指令集</button>
       <button class="bar-button" type="button" @click="disconnect">断开连接</button>
     </AppBar>
 
@@ -189,20 +189,9 @@ async function disconnect() {
 
         <form class="command" @submit.prevent="submitCommand">
           <span class="command__prompt" aria-hidden="true">/</span>
-          <input
-            v-model="command"
-            class="command__input"
-            type="text"
-            placeholder="say 服务器将在 5 分钟后重启"
-            autocomplete="off"
-            spellcheck="false"
-            aria-label="服务器指令"
-          />
-          <button
-            class="command__submit"
-            type="submit"
-            :disabled="!command.trim() || executing"
-          >
+          <input v-model="command" class="command__input" type="text" placeholder="say 服务器将在 5 分钟后重启" autocomplete="off"
+            spellcheck="false" aria-label="服务器指令" />
+          <button class="command__submit" type="submit" :disabled="!command.trim() || executing">
             {{ executing ? '执行中' : '执行' }}
           </button>
         </form>
@@ -316,7 +305,7 @@ async function disconnect() {
   padding: 18px 22px;
 }
 
-.readout__item + .readout__item {
+.readout__item+.readout__item {
   border-left: 1px solid var(--line);
 }
 
@@ -562,6 +551,7 @@ async function disconnect() {
 }
 
 @media (prefers-reduced-motion: no-preference) {
+
   .bar-button,
   .command__input,
   .command__submit {
@@ -595,7 +585,7 @@ async function disconnect() {
     grid-template-columns: 1fr;
   }
 
-  .readout__item + .readout__item {
+  .readout__item+.readout__item {
     border-top: 1px solid var(--line);
     border-left: 0;
   }

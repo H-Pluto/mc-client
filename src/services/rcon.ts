@@ -30,12 +30,26 @@ export interface RconApi {
   execute(command: string): Promise<IpcResult<string>>
 }
 
+export interface McCall {
+  method: string
+  args: unknown[]
+}
+
+export interface McApi {
+  call(method: string, args: unknown[]): Promise<IpcResult<string>>
+}
+
 declare global {
   interface Window {
     rcon?: RconApi
+    mc?: McApi
   }
 }
 
 export function getRconApi(): RconApi | undefined {
   return typeof window === 'undefined' ? undefined : window.rcon
+}
+
+export function getMcApi(): McApi | undefined {
+  return typeof window === 'undefined' ? undefined : window.mc
 }

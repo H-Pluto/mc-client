@@ -8,3 +8,7 @@ contextBridge.exposeInMainWorld('rcon', {
   snapshot: () => ipcRenderer.invoke('rcon:snapshot'),
   execute: (command) => ipcRenderer.invoke('rcon:execute', command),
 })
+
+contextBridge.exposeInMainWorld('mc', {
+  call: (method, args) => ipcRenderer.invoke('mc:call', method, Array.isArray(args) ? args : []),
+})

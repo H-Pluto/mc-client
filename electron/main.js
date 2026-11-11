@@ -14,6 +14,8 @@ let mainWindow = null
 let rcon = null
 /** @type {CommandClient | null} */
 let mc = null
+/** @type {Set<string>} */
+let mcMethods = new Set()
 /** @type {{ host: string, port: number } | null} */
 let serverInfo = null
 
@@ -21,10 +23,31 @@ function toFailure(error) {
   return { ok: false, message: error instanceof Error ? error.message : String(error) }
 }
 
+function collectCommandMethods(client) {
+  const methods = new Set()
+
+  for (
+    let proto = Object.getPrototypeOf(client);
+    proto && proto !== Object.prototype;
+    proto = Object.getPrototypeOf(proto)
+  ) {
+    for (const name of Object.getOwnPropertyNames(proto)) {
+      if (name !== 'constructor' && typeof client[name] === 'function') methods.add(name)
+    }
+  }
+
+  for (const name of Object.keys(client)) {
+    if (typeof client[name] === 'function') methods.add(name)
+  }
+
+  return methods
+}
+
 function closeRcon() {
   rcon?.end()
   rcon = null
   mc = null
+  mcMethods = new Set()
   serverInfo = null
 }
 
@@ -65,6 +88,7 @@ ipcMain.handle('rcon:connect', async (_event, options) => {
     const connection = await MinecraftRcon.connect(input)
     rcon = connection
     mc = new CommandClient(connection)
+    mcMethods = collectCommandMethods(mc)
     serverInfo = { host: input.host, port: input.port }
 
     return { ok: true, data: null }
@@ -106,6 +130,20 @@ ipcMain.handle('rcon:snapshot', async () => {
       ok: true,
       data: { list, version, tps, difficulty, time, weather, latency },
     }
+  } catch (error) {
+    return toFailure(error)
+  }
+})
+
+ipcMain.handle('mc:call', async (_event, method, args) => {
+  if (!mc) return { ok: false, message: 'RCON 未连接' }
+  if (typeof method !== 'string' || !mcMethods.has(method)) {
+    return { ok: false, message: '不支持的指令方法' }
+  }
+  if (!Array.isArray(args)) return { ok: false, message: '指令参数无效' }
+
+  try {
+    return { ok: true, data: await mc[method](...args) }
   } catch (error) {
     return toFailure(error)
   }
