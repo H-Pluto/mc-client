@@ -15,8 +15,12 @@ contextBridge.exposeInMainWorld('mc', {
 
 contextBridge.exposeInMainWorld('flow', {
   run: (commands) => ipcRenderer.invoke('flow:run', commands),
-  save: (content) => ipcRenderer.invoke('flow:save', content),
+  save: (content, path) => ipcRenderer.invoke('flow:save', content, path),
   load: () => ipcRenderer.invoke('flow:load'),
+})
+
+contextBridge.exposeInMainWorld('commandFile', {
+  load: () => ipcRenderer.invoke('commands:load'),
 })
 
 contextBridge.exposeInMainWorld('updater', {
@@ -30,4 +34,8 @@ contextBridge.exposeInMainWorld('updater', {
     ipcRenderer.on('updater:event', listener)
     return () => ipcRenderer.removeListener('updater:event', listener)
   },
+})
+
+contextBridge.exposeInMainWorld('logger', {
+  write: (level, message, context) => ipcRenderer.invoke('log:write', level, message, context),
 })

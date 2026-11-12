@@ -14,7 +14,7 @@ export interface FlowFilePayload {
 
 export interface FlowApi {
   run(commands: string[]): Promise<IpcResult<FlowRunResult[]>>
-  save(content: string): Promise<IpcResult<{ path: string } | null>>
+  save(content: string, path?: string): Promise<IpcResult<{ path: string } | null>>
   load(): Promise<IpcResult<FlowFilePayload | null>>
 }
 

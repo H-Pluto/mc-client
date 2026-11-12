@@ -50,7 +50,7 @@ npm run build && cross-env ELECTRON_BUILDER_BINARIES_MIRROR=https://npmmirror.co
 2. `electron-builder --win` 读取 [electron-builder.yml](electron-builder.yml)，依次完成：
    - 从 `electronDownload.mirror`（npmmirror）检查并下载与 `devDependencies` 中 electron 版本一致的 win32-x64 运行时
    - 执行 `@electron/rebuild`（当前项目没有原生依赖，实际不会重编译）
-   - 把 `dist/`、`electron/`、`package.json` 以及生产依赖（`rcon-mc-command`、`vue`、`pinia`、`vue-router`）复制到 `release/win-unpacked/resources/app`
+   - 把 `dist/`、`electron/`、`data/`、`package.json` 以及生产依赖（`rcon-mc-command`、`vue`、`pinia`、`vue-router`）复制到 `release/win-unpacked/resources/app`
    - 生成 `MC RCON.exe`，应用图标取 `public/favicon.ico`；没有配置证书时跳过代码签名
    - 用 NSIS 压缩生成安装包与便携版，写入 `release/`
 
@@ -150,6 +150,69 @@ git push origin v1.0.0
 ```
 
 工作流运行完成后，到 GitHub Releases 把草稿发布出去，客户端即可检查到更新。
+
+## 自定义指令集（data/command.json）
+
+指令集页面显示的组和指令都来自 `data/command.json`，不再写死在代码里。修改后进入「指令集」页面（或点页面上的「重新加载指令」）即可生效。
+
+### 文件位置
+
+- 开发模式：项目根目录的 [data/command.json](data/command.json)
+- 安装版：程序目录下的 `data/command.json`（首次运行会从随包文件自动复制一份，升级不会覆盖）
+- 便携版：便携版 exe 同级的 `data/command.json`（同样首次运行自动复制）
+
+文件缺失或内容有误时，页面会显示错误并回退到内置指令。
+
+### 结构
+
+```json
+{
+  "version": 1,
+  "groups": [
+    {
+      "id": "custom",
+      "name": "自定义",
+      "description": "组的说明，可省略",
+      "keywords": ["自定义", "custom"],
+      "defaultExpanded": true,
+      "commands": [
+        {
+          "id": "custom-say-hi",
+          "name": "打招呼",
+          "template": "say 你好 {player}",
+          "method": "run",
+          "args": [
+            {
+              "key": "player",
+              "label": "玩家",
+              "kind": "text",
+              "default": "",
+              "placeholder": "@a 或玩家名",
+              "required": true,
+              "width": "md",
+              "suggestPlayers": true
+            }
+          ],
+          "keywords": ["say", "打招呼"]
+        }
+      ]
+    }
+  ]
+}
+```
+
+- **组**：`id`、`name` 必填；`description`、`keywords`、`defaultExpanded` 可省略。新增一个组就是在 `groups` 里加一项。
+- **指令**：`id`、`name`、`template` 必填，`args`、`keywords`、`method` 可省略。
+  - `template` 用 `{参数key}` 占位，执行时替换成参数值，例如 `give {player} minecraft:apple {count}`。
+  - `method` 是 `rcon-mc-command` 的方法名；省略或不填时按原始指令执行（等价于 `"method": "run"`）。
+- **参数**（`args`）：`key`、`label` 必填；`kind` 可选 `text`（默认）、`number`、`select`、`toggle`。
+  - 通用字段：`default`、`placeholder`、`required`、`width`（`sm` / `md` / `lg`）、`suggestPlayers`（文本输入框给出在线玩家建议）。
+  - `number` 额外支持 `min`、`max`。
+  - `select` 必须提供 `options`：`[{ "value": "creative", "label": "创造" }]`。
+  - `toggle` 渲染成开关，值为 `"true"` / `"false"`。
+- 组 `id` 和指令 `id` 都需唯一，重复时页面会提示具体位置（如 `groups[0].commands[2].id`）。
+
+搜索会匹配指令名、模板、指令关键字、组名和组关键字。
 
 ## 服务器要求
 

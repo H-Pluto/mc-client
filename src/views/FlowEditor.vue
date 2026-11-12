@@ -82,6 +82,7 @@ const {
 
 const previewOpen = ref(true)
 const running = ref(false)
+const currentFile = ref<string | null>(null)
 const message = ref<{ tone: 'ok' | 'error'; text: string } | null>(null)
 const history = ref<HistoryEntry[]>(loadHistory())
 
@@ -128,6 +129,8 @@ watch(
 )
 
 onMounted(() => {
+  window.addEventListener('keydown', handleShortcut)
+
   if (nodes.value.length) return
 
   const restored = readAutosave()
@@ -142,8 +145,26 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  window.removeEventListener('keydown', handleShortcut)
   if (autosaveTimer) window.clearTimeout(autosaveTimer)
 })
+
+function handleShortcut(event: KeyboardEvent) {
+  if (event.repeat) return
+  if (!(event.ctrlKey || event.metaKey) || event.altKey || event.shiftKey) return
+
+  const key = event.key.toLowerCase()
+  if (key === 's') {
+    event.preventDefault()
+    void saveFlow()
+  } else if (key === 't') {
+    event.preventDefault()
+    newFlow()
+  } else if (key === 'o') {
+    event.preventDefault()
+    void openFlow()
+  }
+}
 
 function randomId(prefix: string): string {
   return `${prefix}-${Math.random().toString(36).slice(2, 10)}`
@@ -336,6 +357,7 @@ function handleConnect(connection: Connection) {
 function newFlow() {
   if (nodes.value.length && !window.confirm('新建会清空当前流程图，确定继续吗？')) return
   applyDefaultFlow()
+  currentFile.value = null
   message.value = null
 }
 
@@ -357,6 +379,7 @@ async function openFlow() {
     const parsed = parseFlowContent(result.data.content)
     setNodes(parsed.nodes)
     setEdges(parsed.edges)
+    currentFile.value = result.data.path
     await nextTick()
     fitView({ padding: 0.2 })
     message.value = { tone: 'ok', text: `已打开 ${result.data.path}` }
@@ -376,12 +399,13 @@ async function saveFlow() {
   }
 
   try {
-    const result = await api.save(JSON.stringify(serializeFlow(), null, 2))
+    const result = await api.save(JSON.stringify(serializeFlow(), null, 2), currentFile.value ?? undefined)
     if (!result.ok) {
       message.value = { tone: 'error', text: result.message }
       return
     }
     if (!result.data) return
+    currentFile.value = result.data.path
     message.value = { tone: 'ok', text: `已保存到 ${result.data.path}` }
   } catch (error) {
     message.value = {
@@ -426,9 +450,9 @@ async function runFlow() {
     const failed = result.data.filter((entry) => !entry.ok).length
     message.value = failed
       ? {
-          tone: 'error',
-          text: `执行完成：${result.data.length - failed} 条成功，${failed} 条失败。`,
-        }
+        tone: 'error',
+        text: `执行完成：${result.data.length - failed} 条成功，${failed} 条失败。`,
+      }
       : { tone: 'ok', text: `已执行 ${result.data.length} 条指令。` }
   } catch (error) {
     message.value = {
@@ -489,17 +513,9 @@ async function goCommandList() {
       </p>
 
       <div class="flow-canvas">
-        <VueFlow
-          :is-valid-connection="isValidConnection"
-          :min-zoom="0.35"
-          :max-zoom="1.4"
-          :fit-view-on-init="true"
-          :snap-to-grid="true"
-          :snap-grid="[16, 16]"
-          :default-viewport="{ zoom: 0.9 }"
-          :delete-key-code="['Backspace', 'Delete']"
-          @connect="handleConnect"
-        >
+        <VueFlow :is-valid-connection="isValidConnection" :min-zoom="0.35" :max-zoom="1.4" :fit-view-on-init="true"
+          :snap-to-grid="true" :snap-grid="[16, 16]" :default-viewport="{ zoom: 0.9 }"
+          :delete-key-code="['Backspace', 'Delete']" @connect="handleConnect">
           <Background pattern-color="#2a323d" :gap="20" :size="1" />
           <Controls :show-interactive="false" />
 
@@ -516,12 +532,7 @@ async function goCommandList() {
       </div>
 
       <section class="preview">
-        <button
-          class="preview__toggle"
-          type="button"
-          :aria-expanded="previewOpen"
-          @click="previewOpen = !previewOpen"
-        >
+        <button class="preview__toggle" type="button" :aria-expanded="previewOpen" @click="previewOpen = !previewOpen">
           <span class="preview__chevron" :class="{ 'is-open': previewOpen }" aria-hidden="true"></span>
           命令预览
           <span class="preview__count">{{ commandList.length }} 条</span>
@@ -551,12 +562,7 @@ async function goCommandList() {
         </header>
 
         <ul class="history__list">
-          <li
-            v-for="entry in history"
-            :key="entry.id"
-            class="history__item"
-            :data-tone="entry.ok ? 'ok' : 'error'"
-          >
+          <li v-for="entry in history" :key="entry.id" class="history__item" :data-tone="entry.ok ? 'ok' : 'error'">
             <span class="history__time">{{ entry.at }}</span>
             <code class="history__command">/{{ entry.command }}</code>
             <span class="history__detail">{{ entry.detail }}</span>
@@ -935,6 +941,7 @@ async function goCommandList() {
 }
 
 @media (prefers-reduced-motion: no-preference) {
+
   .bar-button,
   .tool-button,
   .run-button,

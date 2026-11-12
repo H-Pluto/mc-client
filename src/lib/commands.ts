@@ -630,15 +630,13 @@ const serverGroup: CommandGroup = {
   ],
 }
 
-export const commandGroups: CommandGroup[] = [
+export const defaultCommandGroups: CommandGroup[] = [
   giveGroup,
   effectGroup,
   playerGroup,
   worldGroup,
   serverGroup,
 ]
-
-export const totalCommands = commandGroups.reduce((sum, group) => sum + group.commands.length, 0)
 
 export function createDefaultValues(command: CommandDef): CommandValues {
   const values: CommandValues = {}

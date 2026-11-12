@@ -14,6 +14,7 @@ publish:
 files:
   - dist/**/*
   - electron/**/*
+  - data/**/*
   - package.json
 
 # ESM 主进程与依赖在 asar 内的加载兼容性不稳定，先以普通目录打包

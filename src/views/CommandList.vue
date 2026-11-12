@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
 import AppBar from '@/components/AppBar.vue'
@@ -7,32 +7,24 @@ import UpdateControl from '@/components/UpdateControl.vue'
 import {
     buildCall,
     buildCommand,
-    commandGroups,
     commandIssue,
     createDefaultValues,
     isCommandReady,
     matchesQuery,
-    totalCommands,
     type CommandDef,
     type CommandGroup,
     type CommandValues,
 } from '@/lib/commands'
+import { useCommandsStore } from '@/stores/commands'
 import { useConnectionStore } from '@/stores/connection'
 
 const router = useRouter()
 const connection = useConnectionStore()
+const commands = useCommandsStore()
 
 const query = ref('')
-const expanded = reactive<Record<string, boolean>>(
-    Object.fromEntries(commandGroups.map((group) => [group.id, group.defaultExpanded ?? false])),
-)
-const values = reactive<Record<string, CommandValues>>(
-    Object.fromEntries(
-        commandGroups.flatMap((group) =>
-            group.commands.map((command) => [command.id, createDefaultValues(command)]),
-        ),
-    ),
-)
+const expanded = reactive<Record<string, boolean>>({})
+const values = reactive<Record<string, CommandValues>>({})
 const selected = ref(new Set<string>())
 const runningIds = reactive(new Set<string>())
 const feedback = reactive<Record<string, { tone: 'ok' | 'error'; text: string }>>({})
@@ -41,14 +33,23 @@ const batchDone = ref(0)
 const batchTotal = ref(0)
 const batchMessage = ref<{ tone: 'ok' | 'error'; text: string } | null>(null)
 
-const allCommands = commandGroups.flatMap((group) => group.commands)
+const allCommands = computed(() => commands.groups.flatMap((group) => group.commands))
+const commandIndex = computed(
+    () => new Map(allCommands.value.map((command) => [command.id, command])),
+)
 
 function valuesFor(id: string): CommandValues {
-    return values[id]!
+    let current = values[id]
+    if (!current) {
+        const command = commandIndex.value.get(id)
+        current = command ? createDefaultValues(command) : {}
+        values[id] = current
+    }
+    return current
 }
 
 const filteredGroups = computed(() =>
-    commandGroups
+    commands.groups
         .map((group) => ({
             ...group,
             commands: group.commands.filter((command) => matchesQuery(query.value, command, group)),
@@ -64,7 +65,7 @@ const selectedCount = computed(() => selected.value.size)
 
 const selectedRunnableCount = computed(
     () =>
-        allCommands.filter(
+        allCommands.value.filter(
             (command) => selected.value.has(command.id) && isCommandReady(command, valuesFor(command.id)),
         ).length,
 )
@@ -80,21 +81,47 @@ const barStatus = computed(() => (connected.value ? `已连接 · ${connection.a
 const canRun = computed(() => connected.value && !batchRunning.value)
 const playerNames = computed(() => connection.players?.names ?? [])
 
+const sourceLabel = computed(() => {
+    if (commands.source === 'json') return '指令来自 command.json'
+    return '正在使用内置指令'
+})
+
 watch(query, (value) => {
     if (!value.trim()) return
     for (const group of filteredGroups.value) expanded[group.id] = true
 })
 
+watch(
+    () => commands.groups,
+    () => {
+        for (const key of Object.keys(values)) delete values[key]
+        for (const key of Object.keys(expanded)) delete expanded[key]
+        selected.value = new Set()
+    },
+)
+
+onMounted(() => {
+    void commands.load()
+})
+
+function isExpanded(group: CommandGroup): boolean {
+    return expanded[group.id] ?? group.defaultExpanded ?? false
+}
+
 function toggleGroup(group: CommandGroup) {
-    expanded[group.id] = !expanded[group.id]
+    expanded[group.id] = !isExpanded(group)
 }
 
 function expandAll() {
-    for (const group of commandGroups) expanded[group.id] = true
+    for (const group of commands.groups) expanded[group.id] = true
 }
 
 function collapseAll() {
-    for (const group of commandGroups) expanded[group.id] = false
+    for (const group of commands.groups) expanded[group.id] = false
+}
+
+async function reload() {
+    await commands.load()
 }
 
 function isSelected(id: string) {
@@ -156,9 +183,9 @@ async function runOne(command: CommandDef): Promise<boolean> {
 async function runSelected() {
     if (batchRunning.value || !canRun.value) return
 
-    const commands = allCommands.filter((command) => selected.value.has(command.id))
-    const runnable = commands.filter((command) => isCommandReady(command, valuesFor(command.id)))
-    const skipped = commands.length - runnable.length
+    const selectedCommands = allCommands.value.filter((command) => selected.value.has(command.id))
+    const runnable = selectedCommands.filter((command) => isCommandReady(command, valuesFor(command.id)))
+    const skipped = selectedCommands.length - runnable.length
 
     if (!runnable.length) {
         batchMessage.value = { tone: 'error', text: '选中的指令参数不完整，请先填写后再执行。' }
@@ -212,7 +239,7 @@ async function goFlow() {
                 <div class="commands__intro">
                     <h1 class="commands__title">指令集</h1>
                     <p class="commands__sub">
-                        共 {{ totalCommands }} 条指令 · 当前显示 {{ visibleCount }} 条
+                        共 {{ commands.total }} 条指令 · 当前显示 {{ visibleCount }} 条
                     </p>
                 </div>
 
@@ -229,12 +256,25 @@ async function goFlow() {
                     <div class="tools__group">
                         <button class="tool-button" type="button" @click="expandAll">全部展开</button>
                         <button class="tool-button" type="button" @click="collapseAll">全部折叠</button>
+                        <button class="tool-button" type="button" :disabled="commands.loading" @click="reload">
+                            {{ commands.loading ? '加载中…' : '重新加载指令' }}
+                        </button>
                     </div>
                 </div>
             </header>
 
             <p v-if="!connected" class="notice notice--warn" role="status">
                 尚未连接服务器，执行按钮暂不可用。
+            </p>
+
+            <p v-if="commands.error" class="notice notice--error" role="status">
+                读取 command.json 失败：{{ commands.error }}
+                <template v-if="commands.filePath">（{{ commands.filePath }}）</template>
+                ，当前使用内置指令。
+            </p>
+            <p v-else class="commands__source">
+                {{ sourceLabel }}
+                <template v-if="commands.filePath"> · {{ commands.filePath }}</template>
             </p>
 
             <p v-if="batchMessage" class="notice" :data-tone="batchMessage.tone" role="status">
@@ -262,15 +302,15 @@ async function goFlow() {
             </p>
 
             <section v-for="group in filteredGroups" :key="group.id" class="group">
-                <button class="group__head" type="button" :aria-expanded="expanded[group.id]"
+                <button class="group__head" type="button" :aria-expanded="isExpanded(group)"
                     @click="toggleGroup(group)">
-                    <span class="group__chevron" :class="{ 'is-open': expanded[group.id] }" aria-hidden="true"></span>
+                    <span class="group__chevron" :class="{ 'is-open': isExpanded(group) }" aria-hidden="true"></span>
                     <span class="group__title">{{ group.name }}</span>
                     <span class="group__desc">{{ group.description }}</span>
                     <span class="group__count">{{ group.commands.length }}</span>
                 </button>
 
-                <ul v-if="expanded[group.id]" class="group__rows">
+                <ul v-if="isExpanded(group)" class="group__rows">
                     <li v-for="command in group.commands" :key="command.id" class="cmd"
                         :class="{ 'cmd--selected': isSelected(command.id) }">
                         <label class="cmd__select">
@@ -508,6 +548,27 @@ async function goFlow() {
     background: rgba(229, 119, 95, 0.08);
     border-color: rgba(229, 119, 95, 0.4);
     color: var(--danger);
+}
+
+.notice--error {
+    background: rgba(229, 119, 95, 0.08);
+    border-color: rgba(229, 119, 95, 0.4);
+    color: var(--danger);
+    word-break: break-all;
+}
+
+.commands__source {
+    overflow: hidden;
+    color: var(--text-dim);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tool-button:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
 }
 
 .bulk {
